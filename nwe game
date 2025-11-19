@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>지구 리부트 | Earth Reboot</title>
+  <style>
+    :root{
+      --bg:#f5f7f2;
+      --text:#26332a;
+      --accent:#4caf50;
+      --panel: rgba(255,255,255,0.85);
+      --round:14px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;font-family:Inter, Pretendard, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;}
+    html,body{height:100%;}
+    body{
+      background:var(--bg);
+      color:var(--text);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* container */
+    .stage{
+      width:100%;
+      height:100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      overflow:hidden;
+      transition:opacity .45s ease, transform .45s ease;
+      padding:1.6rem;
+    }
+    .hidden{display:none;}
+    .topbar{
+      position:fixed; top:12px; left:12px; right:12px;
+      display:flex; justify-content:space-between; align-items:center;
+      z-index:2000;
+      gap:12px;
+    }
+    .title{
+      background:var(--panel);
+      padding:.6rem 1rem; border-radius:12px;
+      box-shadow:0 6px 18px rgba(0,0,0,0.06);
+      font-weight:700;
+    }
+    .scoreBox{
+      background:var(--panel); padding:.5rem 0.9rem; border-radius:12px; font-weight:600;
+      box-shadow:0 6px 18px rgba(0,0,0,0.06);
+    }
+
+    h1{font-size:1.6rem; margin-bottom:.6rem;}
+    p{max-width:860px; text-align:center; line-height:1.6; margin-bottom:1rem; background:var(--panel); padding:0.9rem 1rem; border-radius:12px;}
+
+    button.btn{
+      background:var(--accent); color:white; border:none; padding:.72rem 1rem; border-radius:999px; font-weight:700;
+      box-shadow:0 8px 18px rgba(76,175,80,0.18); cursor:pointer;
+    }
+    button.btn.secondary{background:#9aaea1;}
+    button.btn:active{transform:translateY(2px);}
+
+    footer{position:fixed;left:0;right:0;bottom:0;padding:10px 12px;text-align:center;background:rgba(232,240,228,0.9);font-size:.85rem;color:#516652;}
+
+    /* Common character & dialog */
+    .character{
+      position:absolute; bottom:8%; left:6%; width:140px; height:140px; z-index:1500;
+      background:linear-gradient(180deg, #fff, #f2f2f2); border-radius:18px; display:flex; align-items:center; justify-content:center;
+      box-shadow:0 8px 20px rgba(0,0,0,0.12); padding:8px;
+    }
+    .character img{width:100%; height:100%; object-fit:contain; border-radius:12px;}
+
+    .dialog{
+      position:absolute; bottom:8%; right:6%; z-index:1500;
+      background:var(--panel); padding:12px 14px; border-radius:14px; max-width:46%;
+      box-shadow:0 8px 20px rgba(0,0,0,0.12); font-weight:600;
+    }
+
+    /* Stage specific styling (backgrounds) */
+    #stage0{background:linear-gradient(180deg,#eef7f0,#f5f7f2);}
+    #stage1{background:linear-gradient(180deg,#cfdcd0,#eef7f0);} /* 도시 */
+    #stage2{background:linear-gradient(180deg,#e8f8ff,#eef7f0);} /* 거리 */
+    #stage3{background:linear-gradient(180deg,#f0f9f2,#eef7f0);} /* 땅 */
+    #stage4{background:linear-gradient(180deg,#dbf3ff,#eef7f0);} /* 바다 */
+    #stage5{background:linear-gradient(180deg,#fff7e6,#f9f6ed);} /* 에너지 */
+    #stage6{background:linear-gradient(180deg,#fff6f6,#fbf8f7);} /* 교통 */
+    #stage7{background:linear-gradient(180deg,#e8fbef,#f5fff5);} /* 숲/엔딩 */
+
+    /* interactive object common */
+    .obj{
+      position:absolute; touch-action:none; user-select:none;
+      cursor:pointer;
+      transition:transform .18s ease, opacity .25s ease;
+    }
+    .obj:active{transform:scale(.96);}
+
+    /* clouds for stage1 */
+    .cloud{width:110px; height:66px; background:linear-gradient(#fff,#f2f2f2); border-radius:40px; box-shadow:0 8px 18px rgba(0,0,0,0.08); display:flex; align-items:center; justify-content:center; font-weight:700; color:#6b6b6b;}
+    /* trash icon */
+    .trash{width:56px;height:56px;background:#fff;border-radius:10px;border:2px solid rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:center;font-weight:800;color:#7b7b7b;}
+    /* seed / sapling */
+    .seed{width:46px;height:46px;border-radius:8px;background:#fff;border:2px dashed rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:center;font-weight:700;}
+    /* plastic */
+    .plastic{width:48px;height:48px;border-radius:8px;background:#fff;border:2px solid rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:center;font-weight:700;}
+    /* lights (stage5) */
+    .building{width:90px;height:120px;background:linear-gradient(#e6e6e6,#cfcfcf);border-radius:8px;display:flex;flex-direction:column;gap:6px;padding:8px;align-items:center;justify-content:flex-end;}
+    .window{width:20px;height:16px;background:#1f1f1f;border-radius:2px;transition:background .25s ease;}
+    .window.on{background:gold;}
+
+    /* car/bike */
+    .vehicle{width:84px;height:48px;background:#fff;border-radius:8px;border:2px solid rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:center;font-weight:700;}
+    .butterfly{position:absolute;width:46px;height:46px;background:url('https://cdn-icons-png.flaticon.com/512/616/616408.png') center/cover no-repeat; transform-origin:center;}
+
+    /* responsive small screens tweaks */
+    @media (max-width:520px){
+      .dialog{max-width:75%; bottom:6%; right:4%;}
+      .character{left:4%; width:120px; height:120px;}
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="title">🌍 지구 리부트</div>
+    <div class="scoreBox">환경 지수: <span id="ecoScore">0</span></div>
+  </div>
+
+  <!-- Stage 0 -->
+  <section id="stage0" class="stage">
+    <h1>시작하기</h1>
+    <p>AI와 함께 지구를 되살리는 7단계 미션입니다. 각 스테이지에서 배경의 오브젝트를 직접 터치하거나 드래그해 상호작용하세요.</p>
+    <div style="display:flex;gap:12px;">
+      <button class="btn" id="startBtn">시작하기</button>
+      <button class="btn secondary" id="howBtn">플레이 방법</button>
+    </div>
+  </section>
+
+  <!-- Stage 1: clouds (swipe/tap to clear) -->
+  <section id="stage1" class="stage hidden">
+    <div class="character"><img src="https://cdn-icons-png.flaticon.com/512/3093/3093402.png" alt="guardian"></div>
+    <div class="dialog" id="dialog1">AI 가디언: 도시의 회색 구름을 직접 밀어보세요.</div>
+    <h1>Stage 1 — 공기 정화</h1>
+    <p>구름(먼지)을 스와이프하거나 터치하여 제거하면 하늘이 맑아집니다.</p>
+    <!-- clouds container -->
+    <div id="cloudLayer" style="width:100%;height:60%;position:absolute;top:6%;left:0;pointer-events:none;"></div>
+  </section>
+
+  <!-- Stage 2: street trash -->
+  <section id="stage2" class="stage hidden">
+    <div class="character"><img src="https://cdn-icons-png.flaticon.com/512/3093/3093402.png" alt="guardian"></div>
+    <div class="dialog" id="dialog2">AI 가디언: 거리의 쓰레기를 하나씩 눌러 치워주세요.</div>
+    <h1>Stage 2 — 거리 청소</h1>
+    <p>바닥에 나타나는 쓰레기를 터치하면 사라집니다.</p>
+    <div id="trashLayer" style="width:100%;height:60%;position:absolute;bottom:12%;left:0;"></div>
+  </section>
+
+  <!-- Stage 3: plant saplings -->
+  <section id="stage3" class="stage hidden">
+    <div class="character"><img src="https://cdn-icons-png.flaticon.com/512/3093/3093402.png" alt="guardian"></div>
+    <div class="dialog" id="dialog3">AI 가디언: 빈 땅을 탭하면 묘목이 자랍니다. 여러 번 심어 숲을 만들어보세요.</div>
+    <h1>Stage 3 — 묘목 심기</h1>
+    <p>땅을 탭(혹은 클릭)하면 묘목이 심어져 자랍니다.</p>
+    <div id="ground" style="width:100%;height:60%;position:absolute;bottom:6%;left:0;"></div>
+  </section>
+
+  <!-- Stage 4: ocean cleanup -->
+  <section id="stage4" class="stage hidden">
+    <div class="character"><img src="https://cdn-icons-png.flaticon.com/512/3093/3093402.png" alt="guardian"></div>
+    <div class="dialog" id="dialog4">AI 가디언: 떠다니는 플라스틱을 눌러 바다를 깨끗하게 해주세요.</div>
+    <h1>Stage 4 — 바다 정화</h1>
+    <p>물 위의 플라스틱을 눌러 제거하면 물 색이 맑아집니다.</p>
+    <div id="seaLayer" style="width:100%;height:60%;position:absolute;top:8%;left:0;"></div>
+  </section>
+
+  <!-- Stage 5: lights off -->
+  <section id="stage5" class="stage hidden">
+    <div class="character"><img src="https://cdn-icons-png.flaticon.com/512/3093/3093402.png" alt="guardian"></div>
+    <div class="dialog" id="dialog5">AI 가디언: 켜진 조명을 꺼서 에너지를 절약하세요.</div>
+    <h1>Stage 5 — 에너지 절약</h1>
+    <p>건물의 창문을 눌러 불을 끄면 에너지 점수가 올라갑니다.</p>
+    <div id="buildingLayer" style="width:100%;height:60%;position:absolute;bottom:4%;left:0;"></div>
+  </section>
+
+  <!-- Stage 6: car -> bike -->
+  <section id="stage6" class="stage hidden">
+    <div class="character"><img src="https://cdn-icons-png.flaticon.com/512/3093/3093402.png" alt="guardian"></div>
+    <div class="dialog" id="dialog6">AI 가디언: 자동차를 눌러 자전거로 바꿔보세요.</div>
+    <h1>Stage 6 — 탄소 절감 생활</h1>
+    <p>도로의 자동차를 눌러 자전거로 바꾸면 탄소 배출이 줄어듭니다.</p>
+    <div id="roadLayer" style="width:100%;height:60%;position:absolute;bottom:6%;left:0;"></div>
+  </section>
+
+  <!-- Stage 7: forest flourish (swipe/click to spawn butterflies) -->
+  <section id="stage7" class="stage hidden">
+    <div class="character"><img src="https://cdn-icons-png.flaticon.com/512/3093/3093402.png" alt="guardian"></div>
+    <div class="dialog" id="dialog7">AI 가디언: 화면을 스와이프하거나 탭해서 나비를 풀어주세요. 지구가 회복됩니다.</div>
+    <h1>Stage 7 — 숲의 회복 (엔딩)</h1>
+    <p>대시나 탭으로 나비를 생성해 숲을 활기차게 만드세요. 충분히 만들면 엔딩이 나타납니다.</p>
+    <div id="forestLayer" style="width:100%;height:70%;position:absolute;bottom:0;left:0;"></div>
+  </section>
+
+  <footer>© 2025 김보아 — 지구 리부트 (Earth Reboot) 모든 창작의 지적소유권은 김보아에게 있습니다.</footer>
+
+<script>
+  /* -------------------------
+     게임 상태 관리
+     -------------------------*/
+  let stageIndex = 0; // 0..7
+  let ecoScore = 0;
+  const maxStages = 7;
+
+  const updateScoreUI = () => {
+    document.getElementById('ecoScore').textContent = ecoScore;
+  };
+
+  const showStage = (index) => {
+    // hide all
+    for (let i = 0; i <= maxStages; i++) {
+      const sec = document.getElementById('stage' + i);
+      if (sec) sec.classList.add('hidden');
+    }
+    // show requested
+    const active = document.getElementById('stage' + index);
+    if (active) active.classList.remove('hidden');
+    stageIndex = index;
+  };
+
+  // start
+  document.getElementById('startBtn').addEventListener('click', ()=> {
+    showStage(1);
+    initStage1();
+  });
+  document.getElementById('howBtn').addEventListener('click', ()=> {
+    alert('각 스테이지에서 배경에 보이는 오브젝트를 터치/스와이프하세요. 행동마다 환경 지수가 올라갑니다. 모든 스테이지를 완료해보세요!');
+  });
+
+  updateScoreUI();
+
+
+  /* -------------------------
+     Helper utilities
+     -------------------------*/
+  function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+  function createObj(className, xPercent, yPercent, htmlContent){
+    const el = document.createElement('div');
+    el.className = 'obj '+className;
+    el.style.left = xPercent + '%';
+    el.style.top = yPercent + '%';
+    el.innerHTML = htmlContent || '';
+    // small random offset for natural placement
+    el.style.transform = `translate(-50%,-50%)`;
+    return el;
+  }
+
+  function nextStage(){
+    const next = stageIndex + 1;
+    if (next > maxStages) {
+      // show final summary (after stage7, show a final screen inside stage7)
+      showEnding();
+      return;
+    }
+    showStage(next);
+    // init that stage
+    if (next === 2) initStage2();
+    if (next === 3) initStage3();
+    if (next === 4) initStage4();
+    if (next === 5) initStage5();
+    if (next === 6) initStage6();
+    if (next === 7) initStage7();
+  }
+
+  function advanceAfterDelay(ms=1200){
+    setTimeout(nextStage, ms);
+  }
+
+  /* -------------------------
+     Stage 1 — clouds (swipe/tap)
+     -------------------------*/
+  function initStage1(){
+    const layer = document.getElementById('cloudLayer');
+    layer.innerHTML = '';
+    // create multiple clouds
+    const clouds = [];
+    for (let i=0;i<5;i++){
+      const x = rand(12,88);
+      const y = rand(6,36);
+      const c = createObj('cloud', x, y, '미세먼지');
+      c.classList.add('cloud');
+      c.style.pointerEvents = 'auto';
+      layer.appendChild(c);
+      clouds.push(c);
+      // touch/click to remove
+      const remove = () => {
+        if (!c) return;
+        c.style.opacity = 0;
+        c.style.transform += ' scale(.85)';
+        setTimeout(()=>{ if(c && c.parentNode) c.parentNode.removeChild(c); }, 260);
+        ecoScore += 8;
+        updateScoreUI();
+        document.getElementById('dialog1').textContent = 'AI 가디언: 공기가 조금 맑아졌어요!';
+        // if all removed -> advance
+        if (layer.querySelectorAll('.cloud').length === 0) advanceAfterDelay(900);
+      };
+      c.addEventListener('click', remove);
+      // allow swipe-to-clear (touchmove detection)
+      let startX=null;
+      c.addEventListener('touchstart', (e)=> { startX = e.touches[0].clientX; }, {passive:true});
+      c.addEventListener('touchend', (e)=> {
+        if (startX === null) return;
+        const endX = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0].clientX : null;
+        if (endX && Math.abs(endX - startX) > 30) remove();
+        startX = null;
+      }, {passive:true});
+    }
+  }
+
+  /* -------------------------
+     Stage 2 — trash (tap to remove)
+     -------------------------*/
+  function initStage2(){
+    const layer = document.getElementById('trashLayer');
+    layer.innerHTML = '';
+    const trashCount = 7;
+    for (let i=0;i<trashCount;i++){
+      const x = rand(8,92);
+      const y = rand(52,86);
+      const t = createObj('trash', x, y, '🗑️');
+      t.classList.add('trash');
+      t.style.pointerEvents='auto';
+      layer.appendChild(t);
+      t.addEventListener('click', ()=>{
+        if (!t) return;
+        t.style.transform += ' scale(.7) rotate(-12deg)';
+        t.style.opacity = 0;
+        setTimeout(()=>{ if(t.parentNode) t.parentNode.removeChild(t); }, 280);
+        ecoScore += 6;
+        updateScoreUI();
+        document.getElementById('dialog2').textContent = 'AI 가디언: 깨끗해졌어요!';
+        if (layer.querySelectorAll('.trash').length === 0) advanceAfterDelay(900);
+      });
+      // support touch
+      t.addEventListener('touchstart', ()=> t.dispatchEvent(new Event('click')), {passive:true});
+    }
+  }
+
+  /* -------------------------
+     Stage 3 — plant saplings (tap ground)
+     -------------------------*/
+  function initStage3(){
+    const ground = document.getElementById('ground');
+    ground.innerHTML = '';
+    // allow multiple plantings, require 5 plantings to finish
+    let planted = 0;
+    ground.addEventListener('click', plantHandler);
+    ground.addEventListener('touchstart', (e)=> { e.preventDefault(); plantHandler(); }, {passive:false});
+    function plantHandler(e){
+      const rect = ground.getBoundingClientRect();
+      // random spot - if click event, use coordinates; else random
+      let xPct = rand(10,90);
+      let yPct = rand(58,90);
+      if (e && e.clientX){
+        xPct = ((e.clientX - rect.left) / rect.width) * 100;
+        yPct = ((e.clientY - rect.top) / rect.height) * 100;
+      }
+      const seed = createObj('seed', xPct, yPct, '🌱');
+      seed.classList.add('seed');
+      seed.style.pointerEvents='none';
+      ground.appendChild(seed);
+      // animate growth
+      seed.animate([
+        { transform: 'translate(-50%,-50%) scale(.6)', opacity:0.6 },
+        { transform: 'translate(-50%,-50%) scale(1.05)', opacity:1 },
+      ], { duration:600, easing:'ease-out' });
+      planted++;
+      ecoScore += 7;
+      updateScoreUI();
+      document.getElementById('dialog3').textContent = `AI 가디언: 묘목이 심어졌어요! (${planted}/5)`;
+      if (planted >= 5){
+        // grow to trees visual
+        setTimeout(()=> {
+          ground.querySelectorAll('.seed').forEach((s,i)=> {
+            s.innerHTML = '🌳';
+            s.style.width='64px'; s.style.height='64px';
+          });
+          advanceAfterDelay(900);
+        }, 700);
+        // remove click listener
+        ground.removeEventListener('click', plantHandler);
+      }
+    }
+  }
+
+  /* -------------------------
+     Stage 4 — sea cleanup
+     -------------------------*/
+  function initStage4(){
+    const sea = document.getElementById('seaLayer');
+    sea.innerHTML = '';
+    // create floating plastics that drift (animated)
+    const plastics = [];
+    for (let i=0;i<8;i++){
+      const x = rand(6,94);
+      const y = rand(10,72);
+      const p = createObj('plastic', x, y, '🧴');
+      p.classList.add('plastic');
+      p.style.pointerEvents='auto';
+      sea.appendChild(p);
+      plastics.push(p);
+      p.addEventListener('click', ()=>{
+        p.style.opacity = 0;
+        p.style.transform += ' translateY(-20px) scale(.85)';
+        setTimeout(()=>{ if(p.parentNode) p.parentNode.removeChild(p); },240);
+        ecoScore += 6;
+        updateScoreUI();
+        document.getElementById('dialog4').textContent = 'AI 가디언: 쓰레기를 치웠어요!';
+        if (sea.querySelectorAll('.plastic').length === 0) advanceAfterDelay(900);
+      });
+      p.addEventListener('touchstart', ()=> p.dispatchEvent(new Event('click')), {passive:true});
+      // simple drifting effect
+      (function drift(elem, startX, startY){
+        let dir = (Math.random()>0.5)?1:-1;
+        let amp = rand(6,14);
+        let speed = rand(3000,6000);
+        let t=0;
+        function step(){
+          t+=16;
+          const dx = Math.sin(t/speed*Math.PI*2)*amp*dir;
+          elem.style.transform = `translate(calc(-50% + ${dx}px), -50%)`;
+          if (elem.parentNode) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+      })(p, x, y);
+    }
+  }
+
+  /* -------------------------
+     Stage 5 — lights off (toggle)
+     -------------------------*/
+  function initStage5(){
+    const layer = document.getElementById('buildingLayer');
+    layer.innerHTML = '';
+    // create rows of buildings
+    const cols = 5;
+    for (let i=0;i<cols;i++){
+      const leftPct = 10 + i * 18;
+      const b = createObj('building', leftPct, 52, '');
+      b.classList.add('building');
+      // make windows
+      for (let w=0;w<3;w++){
+        const win = document.createElement('div');
+        win.className='window on'; // initially on
+        b.appendChild(win);
+      }
+      b.style.pointerEvents='auto';
+      layer.appendChild(b);
+      b.addEventListener('click', ()=>{
+        // toggle windows
+        const wins = b.querySelectorAll('.window');
+        wins.forEach(win => {
+          win.classList.toggle('on');
+        });
+        // if toggled more to off state, reward; count off windows
+        const offCount = [...wins].filter(x=>!x.classList.contains('on')).length;
+        // reward by number off
+        if (offCount >= 2) {
+          ecoScore += 5;
+          updateScoreUI();
+          document.getElementById('dialog5').textContent = 'AI 가디언: 에너지 절약 성공!';
+        } else {
+          document.getElementById('dialog5').textContent = 'AI 가디언: 조금 더 꺼볼까요?';
+        }
+        // when many windows are off across buildings, finish
+        const totalOff = [...document.querySelectorAll('.window')].filter(x=>!x.classList.contains('on')).length;
+        const total = document.querySelectorAll('.window').length;
+        if (totalOff >= Math.floor(total*0.5)){
+          advanceAfterDelay(900);
+        }
+      });
+    }
+  }
+
+  /* -------------------------
+     Stage 6 — cars -> bikes
+     -------------------------*/
+  function initStage6(){
+    const layer = document.getElementById('roadLayer');
+    layer.innerHTML = '';
+    // create multiple vehicles
+    for (let i=0;i<6;i++){
+      const x = 8 + i*14;
+      const y = rand(62,78);
+      const v = createObj('vehicle', x, y, '🚗');
+      v.classList.add('vehicle');
+      v.style.pointerEvents='auto';
+      layer.appendChild(v);
+      v.addEventListener('click', ()=>{
+        if (v.dataset.transformed === '1') return;
+        v.dataset.transformed = '1';
+        // change to bike
+        v.innerHTML = '🚲';
+        v.style.background = 'linear-gradient(#eaffea,#ffffff)';
+        ecoScore += 7;
+        updateScoreUI();
+        document.getElementById('dialog6').textContent = 'AI 가디언: 탄소 배출이 줄었습니다!';
+        // finish when 4 bikes
+        const bikes = [...document.querySelectorAll('.vehicle')].filter(x=>x.innerText.includes('🚲')).length;
+        if (bikes >= 4) advanceAfterDelay(900);
+      });
+      v.addEventListener('touchstart', ()=> v.dispatchEvent(new Event('click')), {passive:true});
+    }
+  }
+
+  /* -------------------------
+     Stage 7 — forest flourish (spawn butterflies)
+     -------------------------*/
+  function initStage7(){
+    const layer = document.getElementById('forestLayer');
+    layer.innerHTML = '';
+    let butterflies = 0;
+    const target = 10; // need to spawn 10 butterflies to complete
+    // spawn function
+    function spawnButter(xPct, yPct){
+      const b = createObj('butterfly', xPct, yPct, '');
+      b.classList.add('butterfly');
+      b.style.pointerEvents='none';
+      layer.appendChild(b);
+      butterflies++;
+      ecoScore += 3;
+      updateScoreUI();
+      // float animation
+      let angle = Math.random()*Math.PI*2;
+      const speed = 0.6 + Math.random()*1.4;
+      const startLeft = (xPct/100)*layer.clientWidth;
+      const startTop = (yPct/100)*layer.clientHeight;
+      let t=0;
+      function fly(){
+        t+=0.02*speed;
+        b.style.left = ( (startLeft + Math.sin(t*2 + angle)*40)/layer.clientWidth*100 ) + '%';
+        b.style.top = ( (startTop + Math.cos(t*3 + angle)*24)/layer.clientHeight*100 ) + '%';
+        b.style.transform = `translate(-50%,-50%) rotate(${Math.sin(t)*20}deg)`;
+        if (b.parentNode) requestAnimationFrame(fly);
+      }
+      requestAnimationFrame(fly);
+      if (butterflies >= target){
+        setTimeout(()=> {
+          document.getElementById('dialog7').textContent = 'AI 가디언: 숲이 되살아났습니다! 엔딩으로 이동합니다.';
+          advanceAfterDelay(1400);
+        }, 600);
+      }
+    }
+
+    // click/tap to spawn
+    layer.addEventListener('click', (e)=>{
+      const rect = layer.getBoundingClientRect();
+      const xPct = ((e.clientX - rect.left)/rect.width)*100;
+      const yPct = ((e.clientY - rect.top)/rect.height)*100;
+      spawnButter(xPct, yPct);
+    });
+    layer.addEventListener('touchstart', (e)=> {
+      const t = e.touches[0];
+      const rect = layer.getBoundingClientRect();
+      const xPct = ((t.clientX - rect.left)/rect.width)*100;
+      const yPct = ((t.clientY - rect.top)/rect.height)*100;
+      spawnButter(xPct, yPct);
+    }, {passive:true});
+  }
+
+  /* -------------------------
+     Ending screen & summary
+     -------------------------*/
+  function showEnding(){
+    // build a simple ending overlay inside stage7
+    showStage(7); // ensure stage7 visible
+    const endingText = document.createElement('div');
+    endingText.style.position='absolute';
+    endingText.style.left='50%';
+    endingText.style.top='20%';
+    endingText.style.transform='translateX(-50%)';
+    endingText.style.background='rgba(255,255,255,0.95)';
+    endingText.style.padding='18px 22px';
+    endingText.style.borderRadius='14px';
+    endingText.style.boxShadow='0 12px 30px rgba(0,0,0,0.12)';
+    endingText.style.textAlign='center';
+    endingText.style.zIndex='3000';
+    let message='';
+    if (ecoScore >= 120) message = '🌿 지구가 완전히 회복되었습니다! 당신의 선택이 큰 변화를 만들었어요.';
+    else if (ecoScore >= 80) message = '⚖️ 지구는 회복 중입니다. 꾸준한 노력이 필요합니다.';
+    else message = '☁️ 지구는 아직 아픕니다. 다시 시도해보세요!';
+    endingText.innerHTML = `<h2>${message}</h2><p style="margin-top:.6rem">최종 환경 지수: <strong>${ecoScore}</strong></p><div style="margin-top:10px"><button id="restart" class="btn">다시하기</button></div>`;
+    // remove old existing ending if any
+    const existing = document.getElementById('endingBlock');
+    if (existing) existing.remove();
+    endingText.id = 'endingBlock';
+    document.getElementById('stage7').appendChild(endingText);
+    document.getElementById('restart').addEventListener('click', ()=> location.reload());
+  }
+
+  /* -------------------------
+     Initialize first stage when page loads / safety
+     -------------------------*/
+  // show stage0 by default (already visible)
+  // Preload small guardian image to avoid flicker
+  (function preload(){
+    const img = new Image();
+    img.src = 'https://cdn-icons-png.flaticon.com/512/3093/3093402.png';
+  })();
+
+  // For testing: allow keyboard navigation (desktop)
+  window.addEventListener('keydown', (e)=>{
+    if (e.key === 'ArrowRight'){
+      nextStage();
+    }
+    if (e.key === 'r') location.reload();
+  });
+
+  // Defensive: if user navigates via nextStage calls, ensure proper init is called
+  // (already wired: showStage + initStageX when started)
+</script>
+</body>
+</html>
